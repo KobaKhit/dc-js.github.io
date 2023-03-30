@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DC.js Example</title>
+    <meta charset="utf-8">
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css"
+      integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx"
+      crossorigin="anonymous"/>
+
+    <!-- <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/dc/4.2.7/style/dc.min.css"/> -->
+
+    <!-- Default hover effects -->
+    <style>
+        .dc-chart rect.bar:focus,
+        .dc-chart rect.bar:hover {
+            fill-opacity: .5
+        }
+
+        .dc-chart .pie-slice:focus,
+        .dc-chart .pie-slice:hover {
+            fill-opacity: .8
+        }
+
+        :hover .dc-chart .pie-slice.highlight {
+            fill-opacity: .8
+        }
+        .dc-chart g.state :focus,
+        .dc-chart g.state :hover {
+            fill-opacity: .8
+        }
+        .dc-chart g.row rect:focus,
+        .dc-chart g.row rect:hover {
+            fill-opacity: .6
+        }
+        .dc-chart .node :focus,
+        .dc-chart .node :hover {
+            fill-opacity: .8
+        }
+
+    </style>
+    
+    <!-- Include the library CDN links -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crossfilter2/1.5.4/crossfilter.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.3/dist/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dc/4.2.7/dc.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js" integrity="sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=" crossorigin="anonymous"></script>
+
+  </head>
+  <body>
+    <!-- Div element for the scatter chart -->
+    <div id = 'charts' class="container-fluid">
+       
+    </div>
+    
+
+<script >
+
+
+// Generate fake data
+var data = [];
+for (var i = 1; i < 101; i++) {
+  var random_num = Math.floor(Math.random() * 100) + 1
+  data.push({
+    dimension1: Math.floor(random_num/10)+1,
+    dimension2: Math.round(random_num*Math.random()),
+    value: random_num*Math.random(i*10)
+  });
+}
+
+console.log(data)
+
+// define themes
+var five38_theme = {
+  ".dc-chart .axis text": {
+    "font": "12px sans-serif"
+  },
+  ".dc-chart .axis path, .dc-chart .axis line": {
+    "fill": "none",
+    "stroke": "#000"
+  },
+  ".dc-chart .axis.y text": {
+    "text-anchor": "end"
+  },
+  ".dc-chart .axis.y .tick line": {
+    "stroke-opacity": 0.2
+  },
+  ".dc-chart .bar": {
+    "fill": "#008fd5"
+  },
+  ".dc-chart .bar:hover": {
+    "fill": "#005a8d"
+  },
+  ".dc-chart .selected": {
+    "fill": "#008fd5"
+  },
+  ".dc-chart .deselected": {
+    "fill": "#ccc"
+  },
+  ".dc-chart .brush rect.extent": {
+    "fill-opacity": 0.125,
+    "stroke-opacity": 0.5,
+    "shape-rendering": "crispEdges"
+  },
+  ".dc-chart .brush rect.resize": {
+    "fill-opacity": 0.5,
+    "stroke-opacity": 0.75
+  },
+  "": {
+    "background-color": "#f5f5f5"
+  }
+}
+
+var dark_theme = {
+    ".dc-chart svg, .dc-data-table": { backgroundColor: "#000" },
+    ".dc-chart .axis text": { font: "12px sans-serif", color: "white", fill: 'white'},
+    ".dc-chart strong, .y-label,.dc-legend-item, .dc-data-table": {
+        fill: "white",
+        color: "white"
+    },
+    ".dc-table-section td": { 'backgroundColor': "#403f3f" },
+    "": { backgroundColor: "black", color: "white",stroke:'none' }
+    }
+
+var default_theme = {
+    ".dc-chart svg, .dc-data-table": { 'background-color': "white" },
+    ".dc-chart .axis text": { font: "12px sans-serif", color: "black",},
+    ".dc-chart strong, .y-label,.dc-legend-item, .dc-data-table": {
+        fill: "black",
+        color: "black"
+    },
+    ".dc-table-section td": { 'backgroundColor': "#d9edf7" },
+    "": { 'background-color': "white", color: "black" },
+    
+}
+
+const themes_object = {'default': default_theme,'dark': dark_theme}
+const themes_array = [default_theme, dark_theme, five38_theme]
+const themes_names = ['Default', 'Dark', 'FiveThirtyEight']
+
+for (var i = 0; i < 3; i++) {
+    var s_chart = $(`<div class = "offset-1 col-2" id="scatter-chart${i}">`)
+    var l_chart = $(`<div class = "col-2" id="line-chart${i}">`)
+    var b_chart = $(`<div class = "col-2" id="bar-chart${i}">`)
+    var p_chart = $(`<div class = "col-2" id="pie-chart${i}">`)
+    var h_chart = $(`<div class = "col-2" id="histogram-chart${i}">`)
+    $('#charts').append($(`<div id="theme${i}" class="pt-5 pb-5 row">`).append($(`<h3>${themes_names[i]}</h3>`)).append(s_chart, [l_chart,b_chart,p_chart,h_chart]));
+    
+    
+    // Create the crossfilter object
+    var cf = crossfilter(data);
+
+    // Create the dimensions and groups
+    var dimension1 = cf.dimension(function(d) { return d.dimension1; });
+    var group1 = dimension1.group();
+
+    var dimension2 = cf.dimension(function(d) { return d.dimension2; });
+    var group2 = dimension2.group();
+
+    var scatterdim = cf.dimension(function(d) { return [d.dimension2, d.value] })
+    var scattergroup = scatterdim.group()
+
+    var valdim = cf.dimension(function(d) { return d.value; });
+    var valgroup = valdim.group();
+
+    // Create the charts
+    var scatterChart = dc.scatterPlot(`#scatter-chart${i}`);
+    var lineChart = dc.lineChart(`#line-chart${i}`);
+    var barChart = dc.barChart(`#bar-chart${i}`);
+    var pieChart = dc.pieChart(`#pie-chart${i}`);
+    var histogramChart = dc.barChart(`#histogram-chart${i}`);
+
+    // Set the data for the charts
+    scatterChart.dimension(scatterdim)
+        .group(scattergroup)
+        .x(d3.scaleLinear().domain([0, 100]))
+        .y(d3.scaleLinear().domain([0, 100]))
+        .symbolSize(8)
+        .clipPadding(10)
+        .renderTitle(true)
+        .title(function(d) { return 'X: ' + d.key + ', Y: ' + d.value; })
+        .xAxisLabel('This is the X')
+        .yAxisLabel('This is the Y');
+
+    // Set the line chart's width, height, margins, and x axis label
+    lineChart
+    .xAxisLabel("X Axis")
+    .x(d3.scaleLinear().domain([0, 12]))
+    .dimension(dimension1)
+    .group(group1)
+    .renderArea(true)
+    .renderDataPoints(true)
+    .xAxisLabel('This is the X')
+    .yAxisLabel('This is the Y');
+
+    barChart.dimension(dimension1)
+        .group(group1)
+        .x(d3.scaleOrdinal())
+        .xUnits(dc.units.ordinal);
+
+    pieChart.dimension(dimension1)
+        .group(group1);
+
+    histogramChart.dimension(dimension2)
+        .group(group2)
+        .x(d3.scaleLinear().domain([0, 100]))
+        .xUnits(dc.units.fp.precision(0));
+
+    // Render the charts
+    dc.renderAll();
+
+    $.each(themes_array[i], function(selector, rules) {
+        console.log(selector, rules)
+        $(`#theme${i}`).css(rules);
+    });
+   
+}
+
+
+
+</script>
+
+  </body>
+</html>
